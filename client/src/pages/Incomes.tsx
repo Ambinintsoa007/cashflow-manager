@@ -1,16 +1,161 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
+
+type Income = {
+  id: string
+  amount: number
+  description: string | null
+  transaction_at: string
+}
+
 export default function Incomes() {
+  const { user } = useAuth()
+
+  const [amount, setAmount] = useState('')
+  const [description, setDescription] = useState('')
+  const [transactionAt, setTransactionAt] = useState(
+    new Date().toISOString().slice(0, 16)
+  )
+
+  const [incomes, setIncomes] = useState<Income[]>([])
+
+  const fetchIncomes = async () => {
+    if (!user) return
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('id, amount, description, transaction_at')
+      .eq('type', 'INCOME')
+      .order('transaction_at', { ascending: false })
+
+    if (!error) {
+      setIncomes(data ?? [])
+    }
+  }
+
+  useEffect(() => {
+    fetchIncomes()
+  }, [user])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!user || !amount) return
+
+    const { error } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: user.id,
+        type: 'INCOME',
+        amount: Number(amount),
+        description: description.trim() || null,
+        transaction_at: new Date(transactionAt).toISOString(),
+      })
+
+    if (!error) {
+      setAmount('')
+      setDescription('')
+      setTransactionAt(new Date().toISOString().slice(0, 16))
+
+      fetchIncomes()
+    }
+  }
+
+  const getDateKey = (date: string) => {
+    const d = new Date(date)
+
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+
+    return `${year}-${month}-${day}`
+  }
+
+  const groupedIncomes = incomes.reduce<Record<string, Income[]>>(
+    (groups, income) => {
+      const date = getDateKey(income.transaction_at)
+
+      if (!groups[date]) {
+        groups[date] = []
+      }
+
+      groups[date].push(income)
+
+      return groups
+    },
+    {}
+  )
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Incomes</h1>
-        <p className="mt-1 text-gray-500">
-          Manage and track your income.
-        </p>
-      </div>
+      <h1>Incomes</h1>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
-        <p className="text-gray-500">Income management coming next.</p>
-      </div>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="datetime-local"
+          value={transactionAt}
+          onChange={(e) => setTransactionAt(e.target.value)}
+          required
+        />
+
+        <input
+          type="number"
+          min="0.01"
+          step="0.01"
+          placeholder="Amount"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          required
+        />
+
+        <input
+          type="text"
+          placeholder="Description (optional)"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <button type="submit">Add income</button>
+      </form>
+
+      <hr />
+
+      {Object.entries(groupedIncomes).map(([date, dailyIncomes]) => {
+        const dailyTotal = dailyIncomes.reduce(
+          (total, income) => total + Number(income.amount),
+          0
+        )
+
+        return (
+          <div key={date}>
+            <h2>{date}</h2>
+
+            {dailyIncomes.map((income) => (
+              <div key={income.id}>
+                <span>
+                  {new Date(income.transaction_at).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+
+                {' - '}
+
+                <strong>{income.amount} Ar</strong>
+
+                {income.description && ` - ${income.description}`}
+              </div>
+            ))}
+
+            <p>
+              <strong>Total: {dailyTotal} Ar</strong>
+            </p>
+
+            <hr />
+          </div>
+        )
+      })}
     </div>
   )
 }
