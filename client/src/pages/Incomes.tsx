@@ -20,6 +20,10 @@ export default function Incomes() {
 
   const [incomes, setIncomes] = useState<Income[]>([])
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editAmount, setEditAmount] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+
   const fetchIncomes = async () => {
     if (!user) return
 
@@ -87,6 +91,42 @@ export default function Incomes() {
     {}
   )
 
+  const startEdit = (income: Income) => {
+    setEditingId(income.id)
+    setEditAmount(String(income.amount))
+    setEditDescription(income.description ?? '')
+  }
+
+  const updateIncome = async (id: string) => {
+    const { error } = await supabase
+      .from('transactions')
+      .update({
+        amount: Number(editAmount),
+        description: editDescription.trim() || null,
+      })
+      .eq('id', id)
+
+    if (!error) {
+      setEditingId(null)
+      await fetchIncomes()
+    }
+  }
+
+  const deleteIncome = async (id: string) => {
+    const confirmed = window.confirm('Delete this income?')
+
+    if (!confirmed) return
+
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('id', id)
+
+    if (!error) {
+      await fetchIncomes()
+    }
+  }
+
   return (
     <div>
       <h1>Incomes</h1>
@@ -133,18 +173,57 @@ export default function Incomes() {
 
             {dailyIncomes.map((income) => (
               <div key={income.id}>
-                <span>
-                  {new Date(income.transaction_at).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
+                {editingId === income.id ? (
+                  <>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                    />
 
-                {' - '}
+                    <input
+                      type="text"
+                      value={editDescription}
+                      placeholder="Description"
+                      onChange={(e) => setEditDescription(e.target.value)}
+                    />
 
-                <strong>{income.amount} Ar</strong>
+                    <button onClick={() => updateIncome(income.id)}>
+                      Save
+                    </button>
 
-                {income.description && ` - ${income.description}`}
+                    <button onClick={() => setEditingId(null)}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      {new Date(income.transaction_at).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+
+                    {' - '}
+
+                    <strong>{income.amount} Ar</strong>
+
+                    {income.description && ` - ${income.description}`}
+
+                    {' '}
+
+                    <button onClick={() => startEdit(income)}>
+                      Edit
+                    </button>
+
+                    <button onClick={() => deleteIncome(income.id)}>
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             ))}
 
