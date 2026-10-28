@@ -1,16 +1,18 @@
+import { useFinancialSummary } from '../hooks/useFinancialSummary'
+
 export default function TotalBenefits() {
+  const { totalBenefits, loading, error } = useFinancialSummary()
+
+  if (loading) return <p>Loading...</p>
+  if (error) return <p>{error}</p>
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Total Benefits</h1>
-        <p className="mt-1 text-gray-500">
-          Manage and track your income.
-        </p>
-      </div>
+      <h1>Total Benefits</h1>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
-        <p className="text-gray-500">Income management coming next.</p>
-      </div>
+      <h2>
+        {totalBenefits} Ar
+      </h2>
     </div>
   )
 }
