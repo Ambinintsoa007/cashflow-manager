@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import { formatAmount } from '../../utils/formatAmount'
 
 type TransactionType = 'INCOME' | 'EXPENSE'
 
@@ -380,7 +381,7 @@ export default function TransactionPage({
                         {' - '}
 
                         <strong>
-                          {transaction.amount} Ar
+                          {formatAmount(Number(transaction.amount))}
                         </strong>
 
                         {transaction.description &&
@@ -412,7 +413,7 @@ export default function TransactionPage({
 
                 <p>
                   <strong>
-                    Daily total: {dailyTotal} Ar
+                    Daily total: {formatAmount(dailyTotal)}
                   </strong>
                 </p>
 
@@ -424,7 +425,7 @@ export default function TransactionPage({
       )}
 
       <h2>
-        Period total: {filteredTotal} Ar
+        Period total: {formatAmount(filteredTotal)}
       </h2>
     </div>
   )
