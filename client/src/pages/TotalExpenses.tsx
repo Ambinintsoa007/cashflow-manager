@@ -1,3 +1,4 @@
+import SummaryCard from '../components/summary/SummaryCard'
 import { useFinancialSummary } from '../hooks/useFinancialSummary'
 import { formatAmount } from '../utils/formatAmount'
 
@@ -8,10 +9,10 @@ export default function TotalExpenses() {
   if (error) return <p>{error}</p>
 
   return (
-    <div>
-      <h1>Total Expenses</h1>
-
-      <h2>{formatAmount(totalExpenses)}</h2>
-    </div>
+    <SummaryCard
+      title="Total Expenses"
+      amount={formatAmount(totalExpenses)}
+      description="All expenses recorded since you started using Cashflow Manager."
+    />
   )
 }

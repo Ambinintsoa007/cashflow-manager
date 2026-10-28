@@ -25,30 +25,75 @@ export default function Login() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h1>Login</h1>
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+            Cashflow Manager
+          </h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Sign in to manage your finances.
+          </p>
+        </div>
 
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8"
+        >
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Email
+            </label>
 
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
+            <input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none transition focus:border-gray-500"
+            />
+          </div>
 
-      <button type="submit">Login</button>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Password
+            </label>
 
-      <p>{message}</p>
+            <input
+              type="password"
+              placeholder="Your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none transition focus:border-gray-500"
+            />
+          </div>
 
-      <Link to="/signup">Create an account</Link>
-    </form>
+          {message && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              {message}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-gray-900 px-4 py-2.5 font-medium text-white transition hover:bg-gray-700"
+          >
+            Login
+          </button>
+
+          <p className="text-center text-sm text-gray-500">
+            Don't have an account?{' '}
+            <Link
+              to="/signup"
+              className="font-medium text-gray-900 hover:underline"
+            >
+              Create one
+            </Link>
+          </p>
+        </form>
+      </div>
+    </main>
   )
 }

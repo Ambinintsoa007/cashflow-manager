@@ -1,4 +1,11 @@
 import { useEffect, useState } from 'react'
+import {
+  CalendarDays,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react'
+
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatAmount } from '../../utils/formatAmount'
@@ -59,8 +66,20 @@ export default function TransactionPage({
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
 
+  const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [isAdding, setIsAdding] = useState(false)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   const fetchTransactions = async () => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setErrorMessage('')
 
     const { data, error } = await supabase
       .from('transactions')
@@ -69,11 +88,13 @@ export default function TransactionPage({
       .order('transaction_at', { ascending: false })
 
     if (error) {
-      console.error(`Failed to fetch ${title.toLowerCase()}:`, error.message)
+      setErrorMessage(`Unable to load ${title.toLowerCase()}.`)
+      setLoading(false)
       return
     }
 
     setTransactions(data ?? [])
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -84,6 +105,9 @@ export default function TransactionPage({
     e.preventDefault()
 
     if (!user || !amount || Number(amount) <= 0) return
+
+    setIsAdding(true)
+    setErrorMessage('')
 
     const { error } = await supabase
       .from('transactions')
@@ -96,7 +120,8 @@ export default function TransactionPage({
       })
 
     if (error) {
-      console.error(`Failed to add ${singularLabel}:`, error.message)
+      setErrorMessage(`Unable to add ${singularLabel}.`)
+      setIsAdding(false)
       return
     }
 
@@ -105,6 +130,7 @@ export default function TransactionPage({
     setTransactionAt(getLocalDateTimeInputValue())
 
     await fetchTransactions()
+    setIsAdding(false)
   }
 
   const getDateKey = (date: string) => {
@@ -200,10 +226,14 @@ export default function TransactionPage({
     setEditingId(transaction.id)
     setEditAmount(String(transaction.amount))
     setEditDescription(transaction.description ?? '')
+    setErrorMessage('')
   }
 
   const updateTransaction = async (id: string) => {
     if (!editAmount || Number(editAmount) <= 0) return
+
+    setSavingId(id)
+    setErrorMessage('')
 
     const { error } = await supabase
       .from('transactions')
@@ -214,12 +244,14 @@ export default function TransactionPage({
       .eq('id', id)
 
     if (error) {
-      console.error(`Failed to update ${singularLabel}:`, error.message)
+      setErrorMessage(`Unable to update ${singularLabel}.`)
+      setSavingId(null)
       return
     }
 
     setEditingId(null)
     await fetchTransactions()
+    setSavingId(null)
   }
 
   const deleteTransaction = async (id: string) => {
@@ -229,204 +261,359 @@ export default function TransactionPage({
 
     if (!confirmed) return
 
+    setDeletingId(id)
+    setErrorMessage('')
+
     const { error } = await supabase
       .from('transactions')
       .delete()
       .eq('id', id)
 
     if (error) {
-      console.error(`Failed to delete ${singularLabel}:`, error.message)
+      setErrorMessage(`Unable to delete ${singularLabel}.`)
+      setDeletingId(null)
       return
     }
 
     await fetchTransactions()
+    setDeletingId(null)
   }
 
   return (
-    <div>
-      <h1>{title}</h1>
-
-      <form onSubmit={handleSubmit}>
-        <input
-          type="datetime-local"
-          value={transactionAt}
-          onChange={(e) => setTransactionAt(e.target.value)}
-          required
-        />
-
-        <input
-          type="number"
-          min="0.01"
-          step="0.01"
-          placeholder="Amount"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          required
-        />
-
-        <input
-          type="text"
-          placeholder="Description (optional)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-
-        <button type="submit">
-          Add {singularLabel}
-        </button>
-      </form>
-
-      <hr />
-
+    <div className="space-y-6">
+      {/* Header */}
       <div>
-        <select
-          value={filter}
-          onChange={(e) =>
-            setFilter(e.target.value as DateFilter)
-          }
-        >
-          <option value="today">Today</option>
-          <option value="this-month">This month</option>
-          <option value="last-month">Last month</option>
-          <option value="this-year">This year</option>
-          <option value="last-year">Last year</option>
-          <option value="all">All time</option>
-          <option value="custom">Custom</option>
-        </select>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+          {title}
+        </h1>
 
-        {filter === 'custom' && (
-          <>
-            <input
-              type="date"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-            />
-
-            <input
-              type="date"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-            />
-          </>
-        )}
+        <p className="mt-1 text-sm text-gray-500">
+          Manage and track your {title.toLowerCase()}.
+        </p>
       </div>
 
-      <hr />
+      {/* Add transaction */}
+      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Plus size={18} />
 
-      {filteredTransactions.length === 0 ? (
-        <p>No {title.toLowerCase()} found for this period.</p>
-      ) : (
-        Object.entries(groupedTransactions).map(
-          ([date, dailyTransactions]) => {
-            const dailyTotal = dailyTransactions.reduce(
-              (total, transaction) =>
-                total + Number(transaction.amount),
-              0
-            )
+          <h2 className="font-semibold text-gray-900">
+            Add {singularLabel}
+          </h2>
+        </div>
 
-            return (
-              <div key={date}>
-                <h2>{date}</h2>
+        <form
+          onSubmit={handleSubmit}
+          className="grid gap-4 md:grid-cols-3"
+        >
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Date & time
+            </label>
 
-                {dailyTransactions.map((transaction) => (
-                  <div key={transaction.id}>
-                    {editingId === transaction.id ? (
-                      <>
-                        <input
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          value={editAmount}
-                          onChange={(e) =>
-                            setEditAmount(e.target.value)
-                          }
-                        />
+            <input
+              type="datetime-local"
+              value={transactionAt}
+              onChange={(e) => setTransactionAt(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none transition focus:border-gray-500"
+            />
+          </div>
 
-                        <input
-                          type="text"
-                          value={editDescription}
-                          placeholder="Description"
-                          onChange={(e) =>
-                            setEditDescription(e.target.value)
-                          }
-                        />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Amount
+            </label>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateTransaction(transaction.id)
-                          }
-                        >
-                          Save
-                        </button>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="Amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none transition focus:border-gray-500"
+            />
+          </div>
 
-                        <button
-                          type="button"
-                          onClick={() => setEditingId(null)}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span>
-                          {new Date(
-                            transaction.transaction_at
-                          ).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Description
+            </label>
 
-                        {' - '}
+            <input
+              type="text"
+              placeholder="Optional"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none transition focus:border-gray-500"
+            />
+          </div>
 
-                        <strong>
-                          {formatAmount(Number(transaction.amount))}
-                        </strong>
+          <div className="md:col-span-3">
+            <button
+              type="submit"
+              disabled={isAdding}
+              className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus size={16} />
 
-                        {transaction.description &&
-                          ` - ${transaction.description}`}
+              {isAdding
+                ? 'Adding...'
+                : `Add ${singularLabel}`}
+            </button>
+          </div>
+        </form>
+      </section>
 
-                        {' '}
+      {/* Filters */}
+      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Period
+            </label>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startEdit(transaction)
-                          }
-                        >
-                          Edit
-                        </button>
+            <select
+              value={filter}
+              onChange={(e) =>
+                setFilter(e.target.value as DateFilter)
+              }
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="today">Today</option>
+              <option value="this-month">This month</option>
+              <option value="last-month">Last month</option>
+              <option value="this-year">This year</option>
+              <option value="last-year">Last year</option>
+              <option value="all">All time</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            deleteTransaction(transaction.id)
-                          }
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
+          {filter === 'custom' && (
+            <>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  From
+                </label>
 
-                <p>
-                  <strong>
-                    Daily total: {formatAmount(dailyTotal)}
-                  </strong>
-                </p>
-
-                <hr />
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
               </div>
-            )
-          }
-        )
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  To
+                </label>
+
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* Error */}
+      {errorMessage && (
+        <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {errorMessage}
+        </div>
       )}
 
-      <h2>
-        Period total: {formatAmount(filteredTotal)}
-      </h2>
+      {/* Period total */}
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <p className="text-sm text-gray-500">
+          Period total
+        </p>
+
+        <p className="mt-1 text-2xl font-bold text-gray-900">
+          {formatAmount(filteredTotal)}
+        </p>
+      </section>
+
+      {/* Loading */}
+      {loading ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+          Loading transactions...
+        </div>
+      ) : filteredTransactions.length === 0 ? (
+        /* Empty state */
+        <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
+          <CalendarDays
+            size={32}
+            className="mx-auto mb-3 text-gray-400"
+          />
+
+          <p className="font-medium text-gray-700">
+            No {title.toLowerCase()} found
+          </p>
+
+          <p className="mt-1 text-sm text-gray-500">
+            No transaction exists for this period.
+          </p>
+        </div>
+      ) : (
+        /* Transactions */
+        <div className="space-y-4">
+          {Object.entries(groupedTransactions).map(
+            ([date, dailyTransactions]) => {
+              const dailyTotal = dailyTransactions.reduce(
+                (total, transaction) =>
+                  total + Number(transaction.amount),
+                0
+              )
+
+              return (
+                <section
+                  key={date}
+                  className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                >
+                  {/* Day header */}
+                  <div className="flex flex-col gap-1 border-b border-gray-100 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h2 className="font-semibold text-gray-900">
+                      {date}
+                    </h2>
+
+                    <span className="text-sm font-medium text-gray-600">
+                      {formatAmount(dailyTotal)}
+                    </span>
+                  </div>
+
+                  {/* Daily transactions */}
+                  <div className="divide-y divide-gray-100">
+                    {dailyTransactions.map((transaction) => (
+                      <div
+                        key={transaction.id}
+                        className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        {editingId === transaction.id ? (
+                          <div className="grid w-full gap-3 sm:grid-cols-[160px_1fr_auto]">
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={editAmount}
+                              onChange={(e) =>
+                                setEditAmount(e.target.value)
+                              }
+                              className="rounded-lg border border-gray-300 px-3 py-2"
+                            />
+
+                            <input
+                              type="text"
+                              value={editDescription}
+                              placeholder="Description"
+                              onChange={(e) =>
+                                setEditDescription(e.target.value)
+                              }
+                              className="rounded-lg border border-gray-300 px-3 py-2"
+                            />
+
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                disabled={savingId === transaction.id}
+                                onClick={() =>
+                                  updateTransaction(transaction.id)
+                                }
+                                className="rounded-lg bg-gray-900 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {savingId === transaction.id
+                                  ? 'Saving...'
+                                  : 'Save'}
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={savingId === transaction.id}
+                                onClick={() => setEditingId(null)}
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm text-gray-500">
+                                  {new Date(
+                                    transaction.transaction_at
+                                  ).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+
+                                <strong className="text-gray-900">
+                                  {formatAmount(
+                                    Number(transaction.amount)
+                                  )}
+                                </strong>
+                              </div>
+
+                              {transaction.description && (
+                                <p className="mt-1 break-words text-sm text-gray-500">
+                                  {transaction.description}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={
+                                  deletingId === transaction.id
+                                }
+                                onClick={() =>
+                                  startEdit(transaction)
+                                }
+                                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                <Pencil size={15} />
+                                Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  deletingId === transaction.id
+                                }
+                                onClick={() =>
+                                  deleteTransaction(transaction.id)
+                                }
+                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <Trash2 size={15} />
+
+                                {deletingId === transaction.id
+                                  ? 'Deleting...'
+                                  : 'Delete'}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )
+            }
+          )}
+        </div>
+      )}
     </div>
   )
 }
