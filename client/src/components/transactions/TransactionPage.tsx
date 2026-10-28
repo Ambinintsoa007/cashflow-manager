@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../contexts/auth'
 import { formatAmount } from '../../utils/formatAmount'
 
 type TransactionType = 'INCOME' | 'EXPENSE'
@@ -98,8 +98,35 @@ export default function TransactionPage({
   }
 
   useEffect(() => {
-    fetchTransactions()
-  }, [user, type])
+    let cancelled = false
+
+    const loadTransactions = async () => {
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, amount, description, transaction_at')
+        .eq('type', type)
+        .order('transaction_at', { ascending: false })
+
+      if (cancelled) return
+
+      if (error) {
+        setErrorMessage(`Unable to load ${title.toLowerCase()}.`)
+        setLoading(false)
+        return
+      }
+
+      setTransactions(data ?? [])
+      setLoading(false)
+    }
+
+    void loadTransactions()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user, type, title])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
