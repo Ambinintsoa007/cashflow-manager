@@ -1,3 +1,4 @@
+import SummaryCard from '../components/summary/SummaryCard'
 import { useFinancialSummary } from '../hooks/useFinancialSummary'
 import { formatAmount } from '../utils/formatAmount'
 
@@ -8,10 +9,10 @@ export default function TotalBenefits() {
   if (error) return <p>{error}</p>
 
   return (
-    <div>
-      <h1>Total Benefits</h1>
-
-      <h2>{formatAmount(totalBenefits)}</h2>
-    </div>
+    <SummaryCard
+      title="Total Benefits"
+      amount={formatAmount(totalBenefits)}
+      description="Your total incomes minus your total expenses."
+    />
   )
 }
