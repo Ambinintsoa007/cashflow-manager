@@ -1,4 +1,5 @@
 import { useFinancialSummary } from '../hooks/useFinancialSummary'
+import { formatAmount } from '../utils/formatAmount'
 
 export default function TotalIncomes() {
   const { totalIncomes, loading, error } = useFinancialSummary()
@@ -10,9 +11,7 @@ export default function TotalIncomes() {
     <div>
       <h1>Total Incomes</h1>
 
-      <h2>
-        {totalIncomes} Ar
-      </h2>
+      <h2>{formatAmount(totalIncomes)}</h2>
     </div>
   )
 }
